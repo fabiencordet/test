@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SanteFlow - Logiciel Métier Avancé</title>
+    <title>SanteFlow - Tableau de Bord Clinique</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
@@ -13,158 +13,334 @@
         body { font-family: 'Inter', sans-serif; }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-[#F8FAFC] min-h-screen">
 
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useRef, useEffect } = React;
 
-        // 1. DONNÉES DE TEST ENRICHIES (HISTORIQUE LONG)
+        // 1. DONNÉES PATIENT ENRICHIES AVEC TOUT L'HISTORIQUE ET LES IMAGES
         const INITIAL_PATIENT = {
             id: "p-001",
             nom: "DURAND",
             prenom: "Jean-Pierre",
             age: 62,
             niss: "62.05.12-123.45",
-            antecedents: ["Diabète Type 2 (Suivi)", "Hypertension artérielle", "Cataracte OD opérée (Mai 2023)", "Suspicion de Glaucome chronologique OG"],
+            
+            // Catégorisation poussée des antécédents
+            antecedents: {
+                oculaires: [
+                    "Cataracte OD opérée (Mai 2023 - Implant monofocal)",
+                    "Laser rétinien périphérique OD (2021 - Déchirure stabilisée)",
+                    "Suspicion de Glaucome primitif à angle ouvert OG (À surveiller)"
+                ],
+                generaux: [
+                    "Diabète de Type 2 (Sous Metformine, dernier Hba1c à 6.8%)",
+                    "Hypertension artérielle (Traitée par IEC)",
+                    "Hypercholestérolémie"
+                ],
+                familiaux: [
+                    "Mère : DMLA (Dégénérescence Maculaire Liée à l'Âge)",
+                    "Père : Glaucome chronique"
+                ]
+            },
+            
+            // Synthèse automatique des dernières constantes pour la fiche patient
+            dernieresMesures: {
+                date: "11/06/2025",
+                tension: { od: "14 mmHg", og: "19 mmHg" },
+                refraction: { od: "Sph +1.25 Cyl -0.50 Axe 90° (VA 10/10)", og: "Sph +1.50 Cyl -0.25 Axe 85° (VA 9/10)" },
+                pachymetrie: { od: "545 µm", og: "542 µm" },
+                keratometrie: { od: "43.25 / 44.00 mm", og: "43.50 / 44.25 mm" }
+            },
+            
+            // Historique médical où chaque consultation possède Tension, Réfraction et Imagerie
             prisesEnCharge: [
                 {
                     id: "pec-2022",
                     date: "14/04/2022",
-                    motif: "Contrôle initial / Prescription lunettes",
-                    conclusion: "Myopie faible stable. Fond d'œil normal. PIO initiale à surveiller.",
-                    examens: [
-                        { type: "Réfraction", od: "Sph -1.00", og: "Sph -1.25" },
-                        { type: "Tension", od: "15 mmHg", og: "17 mmHg" }
-                    ]
+                    motif: "Contrôle annuel de routine",
+                    conclusion: "Myopie et astigmatisme stables. Tension oculaire limite à gauche. Fond d'œil normal.",
+                    examens: {
+                        tension: { od: "15 mmHg", og: "17 mmHg" },
+                        refraction: { od: "Sph -1.00 Cyl -0.50 Axe 90°", og: "Sph -1.25 Cyl -0.25 Axe 85°" },
+                        hasImagerie: true,
+                        imageUrl: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=600&q=80",
+                        imageLabel: "Rétinographie Grand Champ AO (Normal)"
+                    }
                 },
                 {
                     id: "pec-2023",
                     date: "12/10/2023",
-                    motif: "Bilan Cataracte post-opératoire",
-                    conclusion: "Excellente récupération OD (AV 10/10). Segment antérieur calme. Cristallin clair OG.",
-                    examens: [
-                        { type: "Réfraction", od: "Sph Plan", og: "Sph -1.25" },
-                        { type: "Tension", od: "13 mmHg", og: "14 mmHg" }
-                    ]
+                    motif: "Bilan post-opératoire Cataracte OD",
+                    conclusion: "Excellent résultat chirurgical OD. Acuité visuelle remontée à 10/10. Segment antérieur calme.",
+                    examens: {
+                        tension: { od: "12 mmHg", og: "14 mmHg" },
+                        refraction: { od: "Sph Plan (Implant)", og: "Sph -1.25 Cyl -0.25 Axe 85°" },
+                        hasImagerie: true,
+                        imageUrl: "https://images.unsplash.com/photo-1579684389782-64d84b5e901a?auto=format&fit=crop&w=600&q=80",
+                        imageLabel: "Contrôle Papille / Macula OD"
+                    }
                 },
                 {
                     id: "pec-2024",
                     date: "05/09/2024",
-                    motif: "Suivi annuel diabète + PIO",
-                    conclusion: "Pas de rétinopathie diabétique. Légère hausse de la tension oculaire à gauche.",
-                    examens: [
-                        { type: "Tension", od: "14 mmHg", og: "19 mmHg" },
-                        { type: "Pachymétrie", od: "545 µm", og: "542 µm" }
-                    ]
-                },
-                {
-                    id: "pec-2025",
-                    date: "11/06/2025",
-                    motif: "Urgence relative - Myodésopsies OG",
-                    conclusion: "Décollement postérieur du vitré OG en cours sans déchirure rétinienne périphérique. Revoir à 3 semaines.",
-                    examens: [
-                        { type: "Observation", notes: "Flashs lumineux intermittents quadrant temporal externe OG depuis 48h." }
-                    ]
+                    motif: "Suivi Diabète + courbe de tension oculaire",
+                    conclusion: "Pas de rétinopathie diabétique décelable. Pic de tension confirmé à gauche (19 mmHg). À corréler avec la pachymétrie.",
+                    examens: {
+                        tension: { od: "14 mmHg", og: "19 mmHg" },
+                        refraction: { od: "Sph +1.00 Cyl -0.50 Axe 90°", og: "Sph +1.25 Cyl -0.25 Axe 85°" },
+                        hasImagerie: true,
+                        imageUrl: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=600&q=80",
+                        imageLabel: "Rétinographie de contrôle du réseau vasculaire"
+                    }
                 }
             ]
         };
 
-        // LISTE DES MODULES DISPONIBLES DANS L'OMNIBAR
+        // CONFIGURATION DES MODULES DE L'OMNIBAR (PAGE DE SAISIE)
         const AVAILABLE_MODULES = [
-            { id: "anamnese", label: "Ajouter une observation médicale (Anamnèse / Motif)", keywords: ["anamnese", "motif", "obs", "texte", "commentaire", "plainte"] },
-            { id: "obj", label: "Ajouter une mesure : Réfraction Objective", keywords: ["refraction", "objective", "obj", "sph", "cyl", "axe", "autorefr"] },
-            { id: "subj", label: "Ajouter une mesure : Réfraction Subjective", keywords: ["refraction", "subjective", "subj", "acuite", "lunettes", "va"] },
-            { id: "ker", label: "Ajouter une mesure : Kératométrie", keywords: ["keratometrie", "ker", "cornee", "courbure", "mm"] },
-            { id: "pach", label: "Ajouter une mesure : Pachymétrie", keywords: ["pachymetrie", "pach", "epaisseur", "cornee", "micron"] },
-            { id: "tens", label: "Ajouter une observation médicale de type Tension Oculaire", keywords: ["tension", "tens", "pio", "pression", "glaucome", "mmhg"] },
-            { id: "imagerie", label: "Ajouter un module d'Imagerie / Rétinographies", keywords: ["retinographie", "imagerie", "photo", "fond d'oeil", "image", "import"] },
-            { id: "conclusion", label: "Ajouter la Conclusion & Prescription", keywords: ["conclusion", "prescription", "ordonnance", "fin", "clore"] }
+            { id: "anamnese", label: "Ajouter une observation médicale (Anamnèse / Motif)", keywords: ["anamnese", "motif", "obs", "texte"] },
+            { id: "obj", label: "Ajouter une mesure : Réfraction Objective", keywords: ["refraction", "objective", "sph", "cyl"] },
+            { id: "subj", label: "Ajouter une mesure : Réfraction Subjective", keywords: ["refraction", "subjective", "va", "lunettes"] },
+            { id: "ker", label: "Ajouter une mesure : Kératométrie", keywords: ["keratometrie", "ker", "cornee", "mm"] },
+            { id: "pach", label: "Ajouter une mesure : Pachymétrie", keywords: ["pachymetrie", "pach", "micron"] },
+            { id: "tens", label: "Ajouter une observation médicale de type Tension Oculaire", keywords: ["tension", "tens", "pio", "glaucome", "mmhg"] },
+            { id: "imagerie", label: "Ajouter un module d'Imagerie / Rétinographies", keywords: ["retinographie", "imagerie", "photo", "fond"] },
+            { id: "conclusion", label: "Ajouter la Conclusion & Prescription", keywords: ["conclusion", "prescription", "ordonnance"] }
         ];
 
-        // COMPOSANT DE LIGNE DE MESURE (OD / OG)
+        // LIGNE DE SAISIE REUTILISABLE (OD / OG)
         const MeasurementRow = ({ label, unit, fields, section, values, onChange }) => (
-            <div class="grid grid-cols-12 gap-4 items-center py-3 border-b border-gray-100 last:border-0">
-                <div class="col-span-3 text-sm font-medium text-gray-700">{label}</div>
-                <div class="col-span-4 flex gap-2">
+            <div className="grid grid-cols-12 gap-4 items-center py-3 border-b border-gray-100 last:border-0">
+                <div className="col-span-3 text-sm font-medium text-gray-700">{label}</div>
+                <div className="col-span-4 flex gap-2">
                     {fields.map(f => (
                         <input 
-                            key={`od-${f}`}
-                            type="text"
-                            placeholder={`${f} OD`}
-                            class="w-full p-2 bg-blue-50/40 border border-blue-200 rounded text-xs focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none transition"
+                            key={`od-${f}`} type="text" placeholder={`${f} OD`}
+                            className="w-full p-2 bg-blue-50/40 border border-blue-200 rounded text-xs focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none transition"
                             value={values[`od_${section}_${f}`] || ''}
                             onChange={(e) => onChange(`od_${section}_${f}`, e.target.value)}
                         />
                     ))}
                 </div>
-                <div class="col-span-4 flex gap-2">
+                <div className="col-span-4 flex gap-2">
                     {fields.map(f => (
                         <input 
-                            key={`og-${f}`}
-                            type="text"
-                            placeholder={`${f} OG`}
-                            class="w-full p-2 bg-emerald-50/40 border border-emerald-200 rounded text-xs focus:bg-white focus:ring-2 focus:ring-emerald-400 outline-none transition"
+                            key={`og-${f}`} type="text" placeholder={`${f} OG`}
+                            className="w-full p-2 bg-emerald-50/40 border border-emerald-200 rounded text-xs focus:bg-white focus:ring-2 focus:ring-emerald-400 outline-none transition"
                             value={values[`og_${section}_${f}`] || ''}
                             onChange={(e) => onChange(`og_${section}_${f}`, e.target.value)}
                         />
                     ))}
                 </div>
-                <div class="col-span-1 text-xs font-bold text-gray-400 uppercase text-right">{unit}</div>
+                <div className="col-span-1 text-xs font-bold text-gray-400 uppercase text-right">{unit}</div>
             </div>
         );
 
-        // VUE PATIENT (LONGITUDINALE)
-        const PatientView = ({ patient, onNewPEC }) => (
-            <div class="max-w-6xl mx-auto p-8">
-                <div class="flex justify-between items-start mb-8">
-                    <div>
-                        <div class="flex items-center gap-3 mb-1">
-                            <h1 class="text-3xl font-bold text-gray-900">{patient.nom} {patient.prenom}</h1>
-                            <span class="px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-xs font-semibold">ID: {patient.id}</span>
-                        </div>
-                        <p class="text-gray-500">{patient.age} ans • NISS: {patient.niss}</p>
-                    </div>
-                    <button onClick={onNewPEC} class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-100 transition cursor-pointer">
-                        + Nouvelle Prise en Charge
-                    </button>
-                </div>
 
-                <div class="grid grid-cols-12 gap-8">
-                    <div class="col-span-4 space-y-6">
-                        <div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-                            <h3 class="font-bold text-gray-800 mb-3 text-sm uppercase tracking-wider text-red-600">⚠️ Antécédents</h3>
-                            <ul class="space-y-2">
-                                {patient.antecedents.map((a, i) => (
-                                    <li key={i} class="text-sm bg-red-50 text-red-700 p-2 rounded-lg border border-red-100 italic">• {a}</li>
-                                ))}
-                            </ul>
+        // ==========================================
+        // VUE PATIENT : INTERFACE LONGITUDINALE ET SYNTHÈSE
+        // ==========================================
+        const PatientView = ({ patient, onNewPEC }) => {
+            const [lightboxImg, setLightboxImg] = useState(null);
+
+            return (
+                <div className="max-w-7xl mx-auto p-8">
+                    {/* Header Principal */}
+                    <div className="flex justify-between items-start mb-8 bg-white p-6 rounded-2xl border border-gray-200 shadow-2xs">
+                        <div>
+                            <div className="flex items-center gap-3 mb-1">
+                                <h1 className="text-3xl font-extrabold text-gray-900">{patient.nom} {patient.prenom}</h1>
+                                <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-bold">Patient Actif</span>
+                            </div>
+                            <p className="text-gray-500 font-medium">{patient.age} ans • NISS: {patient.niss} • Dossier #MD-{patient.id}</p>
                         </div>
+                        <button onClick={onNewPEC} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold shadow-md shadow-blue-100 transition cursor-pointer flex items-center gap-2">
+                            <span>🩺 Nouvelle Consultation Focus</span>
+                        </button>
                     </div>
 
-                    <div class="col-span-8 bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
-                        <h2 class="text-xl font-bold text-gray-900 mb-6">Historique Longitudinal ({patient.prisesEnCharge.length} épisodes)</h2>
-                        <div class="relative border-l-2 border-gray-100 ml-4 space-y-8">
-                            {patient.prisesEnCharge.slice().reverse().map(pec => (
-                                <div key={pec.id} class="relative pl-8">
-                                    <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-white border-2 border-blue-500"></div>
-                                    <div class="flex justify-between mb-2">
-                                        <h4 class="font-bold text-gray-800">PEC du {pec.date}</h4>
-                                        <span class="text-xs font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded">{pec.motif}</span>
+                    <div className="grid grid-cols-12 gap-8">
+                        {/* COLONNE GAUCHE : ANTÉCÉDENTS ET ACCÈS DIRECT IMAGERIE */}
+                        <div className="col-span-4 space-y-6">
+                            
+                            {/* BLOC ANTÉCÉDENTS DU PATIENT */}
+                            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-2xs">
+                                <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-2">
+                                    📋 Dossier d'Antécédents
+                                </h3>
+                                
+                                <div className="space-y-4">
+                                    <div>
+                                        <h4 className="text-xs font-bold text-red-600 uppercase mb-1.5">👁️ Oculaires</h4>
+                                        <ul className="space-y-1 bg-red-50/50 p-3 rounded-xl border border-red-100">
+                                            {patient.antecedents.oculaires.map((a, i) => (
+                                                <li key={i} className="text-xs text-red-900 font-medium">• {a}</li>
+                                            ))}
+                                        </ul>
                                     </div>
-                                    <p class="text-sm text-gray-600 bg-gray-50 p-3 rounded-xl border border-gray-100 italic">"{pec.conclusion}"</p>
+
+                                    <div>
+                                        <h4 className="text-xs font-bold text-amber-600 uppercase mb-1.5">🩺 Généraux</h4>
+                                        <ul className="space-y-1 bg-amber-50/50 p-3 rounded-xl border border-amber-100">
+                                            {patient.antecedents.generaux.map((a, i) => (
+                                                <li key={i} className="text-xs text-amber-900 font-medium">• {a}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+
+                                    <div>
+                                        <h4 className="text-xs font-bold text-slate-600 uppercase mb-1.5">👥 Familiaux</h4>
+                                        <ul className="space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                            {patient.antecedents.familiaux.map((a, i) => (
+                                                <li key={i} className="text-xs text-slate-700">• {a}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
                                 </div>
-                            ))}
+                            </div>
+
+                            {/* BLOC ACCÈS DIRECT AUX IMAGERIES (RÉTINOGRAPHIES) */}
+                            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-2xs">
+                                <h3 className="font-bold text-gray-900 mb-3 text-sm uppercase tracking-wider border-b border-gray-100 pb-2">
+                                    📸 Accès Direct Imageries
+                                </h3>
+                                <p className="text-[11px] text-gray-400 mb-3">Cliquez sur une rétinographie historique pour l'agrandir.</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {patient.prisesEnCharge.filter(p => p.examens.hasImagerie).map(pec => (
+                                        <div 
+                                            key={pec.id} 
+                                            className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-slate-100 group cursor-pointer shadow-2xs"
+                                            onClick={() => setLightboxImg({ url: pec.examens.imageUrl, label: pec.examens.imageLabel, date: pec.date })}
+                                        >
+                                            <img src={pec.examens.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                                            <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1.5 text-center">
+                                                <p className="text-[9px] font-bold text-white uppercase">{pec.date}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* COLONNE DROITE : SYNTHÈSE DES DERNIÈRES MESURES & TIMELINE */}
+                        <div className="col-span-8 space-y-6">
+                            
+                            {/* BLOC DES DERNIÈRES MESURES ENREGISTRÉES */}
+                            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-2xs">
+                                <div className="flex justify-between items-center border-b border-gray-100 pb-3 mb-4">
+                                    <h3 className="font-bold text-gray-900 text-sm uppercase tracking-wider flex items-center gap-2">
+                                        📈 Dernières Constantes Capturées
+                                    </h3>
+                                    <span className="text-xs font-mono bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md font-bold">Dernier examen : {patient.dernieresMesures.date}</span>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="p-4 bg-slate-50 border border-gray-100 rounded-xl">
+                                        <p className="text-xs font-bold text-gray-400 uppercase mb-2">👁️ Réfraction Subjective</p>
+                                        <div className="space-y-1">
+                                            <p className="text-xs font-medium text-slate-800"><span className="inline-block w-6 text-[10px] font-bold text-blue-600 bg-blue-50 text-center rounded mr-1">OD</span> {patient.dernieresMesures.refraction.od}</p>
+                                            <p className="text-xs font-medium text-slate-800"><span className="inline-block w-6 text-[10px] font-bold text-emerald-600 bg-emerald-50 text-center rounded mr-1">OG</span> {patient.dernieresMesures.refraction.og}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-4 bg-slate-50 border border-gray-100 rounded-xl">
+                                        <p className="text-xs font-bold text-gray-400 uppercase mb-2">🩺 Tension Oculaire (PIO)</p>
+                                        <div className="space-y-1">
+                                            <p className="text-xs font-medium text-slate-800"><span className="inline-block w-6 text-[10px] font-bold text-blue-600 bg-blue-50 text-center rounded mr-1">OD</span> <span className="font-mono font-bold text-gray-900">{patient.dernieresMesures.tension.od}</span></p>
+                                            <p className="text-xs font-medium text-slate-800"><span className="inline-block w-6 text-[10px] font-bold text-emerald-600 bg-emerald-50 text-center rounded mr-1">OG</span> <span className="font-mono font-bold text-red-600 bg-red-50 px-1 rounded">{patient.dernieresMesures.tension.og}</span> <span className="text-[10px] text-red-500 font-bold ml-1">⚠️ Limite</span></p>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-4 bg-slate-50 border border-gray-100 rounded-xl">
+                                        <p className="text-xs font-bold text-gray-400 uppercase mb-2">📐 Pachymétrie</p>
+                                        <div className="space-y-1">
+                                            <p className="text-xs font-medium text-slate-800"><span className="inline-block w-6 text-[10px] font-bold text-blue-600 bg-blue-50 text-center rounded mr-1">OD</span> {patient.dernieresMesures.pachymetrie.od}</p>
+                                            <p className="text-xs font-medium text-slate-800"><span className="inline-block w-6 text-[10px] font-bold text-emerald-600 bg-emerald-50 text-center rounded mr-1">OG</span> {patient.dernieresMesures.pachymetrie.og}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-4 bg-slate-50 border border-gray-100 rounded-xl">
+                                        <p className="text-xs font-bold text-gray-400 uppercase mb-2">⭕ Kératométrie</p>
+                                        <div className="space-y-1">
+                                            <p className="text-xs font-medium text-slate-800"><span className="inline-block w-6 text-[10px] font-bold text-blue-600 bg-blue-50 text-center rounded mr-1">OD</span> {patient.dernieresMesures.keratometrie.od}</p>
+                                            <p className="text-xs font-medium text-slate-800"><span className="inline-block w-6 text-[10px] font-bold text-emerald-600 bg-emerald-50 text-center rounded mr-1">OG</span> {patient.dernieresMesures.keratometrie.og}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* TIMELINE HISTORIQUE DE TOUTES LES CONSULTATIONS */}
+                            <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-2xs">
+                                <h2 className="text-lg font-bold text-gray-900 mb-6">Arborescence & Suivi Clinique Longitudinal</h2>
+                                <div className="relative border-l-2 border-slate-100 ml-4 space-y-8">
+                                    {patient.prisesEnCharge.slice().reverse().map(pec => (
+                                        <div key={pec.id} className="relative pl-8 group">
+                                            <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-white border-2 border-blue-500 group-hover:bg-blue-500 transition"></div>
+                                            <div className="flex justify-between items-center mb-2">
+                                                <h4 className="font-bold text-gray-800">Consultation du {pec.date}</h4>
+                                                <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-md">{pec.motif}</span>
+                                            </div>
+                                            
+                                            {/* Détail structuré embarqué dans l'historique */}
+                                            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-3">
+                                                <p className="text-xs text-gray-600 italic">" {pec.conclusion} "</p>
+                                                
+                                                {/* Grid de rappel des constantes de l'époque */}
+                                                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-200/60 text-[11px]">
+                                                    <div>
+                                                        <span className="font-bold text-gray-400 block uppercase text-[9px]">🩺 Tension</span>
+                                                        <span className="text-gray-700">OD: {pec.examens.tension.od} | OG: {pec.examens.tension.og}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="font-bold text-gray-400 block uppercase text-[9px]">👁️ Réfraction</span>
+                                                        <span className="text-gray-700 block truncate">OD: {pec.examens.refraction.od}</span>
+                                                        <span className="text-gray-700 block truncate">OG: {pec.examens.refraction.og}</span>
+                                                    </div>
+                                                    {pec.examens.hasImagerie && (
+                                                        <div>
+                                                            <span className="font-bold text-gray-400 block uppercase text-[9px]">📸 Imagerie</span>
+                                                            <span className="text-blue-600 font-medium underline cursor-pointer" onClick={() => setLightboxImg({ url: pec.examens.imageUrl, label: pec.examens.imageLabel, date: pec.date })}>Voir le cliché</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        );
 
-        // VUE PRISE EN CHARGE (FOCALE AVEC OMNIBAR)
+                    {/* MODAL : LIGHTBOX VISIONNEUSE D'IMAGE */}
+                    {lightboxImg && (
+                        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setLightboxImg(null)}>
+                            <div className="bg-slate-900 rounded-2xl max-w-2xl w-full overflow-hidden border border-slate-700 shadow-2xl" onClick={e => e.stopPropagation()}>
+                                <div className="p-4 bg-slate-800 border-b border-slate-700 flex justify-between items-center text-white">
+                                    <div>
+                                        <h4 className="font-bold text-sm">{lightboxImg.label}</h4>
+                                        <p className="text-xs text-slate-400">Capturée le {lightboxImg.date}</p>
+                                    </div>
+                                    <button onClick={() => setLightboxImg(null)} className="text-slate-400 hover:text-white text-sm font-bold bg-slate-700 px-3 py-1 rounded-lg cursor-pointer">Fermer</button>
+                                </div>
+                                <div className="p-6 flex justify-center bg-black">
+                                    <img src={lightboxImg.url} className="max-h-[70vh] rounded-lg shadow-lg object-contain" />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+
+        // ==========================================
+        // VUE PRISE EN CHARGE : ESPACE DE SAISIE AVEC OMNIBAR
+        // ==========================================
         const CareView = ({ patient, onBack }) => {
-            const [activeSections, setActiveSections] = useState([]); // VIDE PAR DÉFAUT
+            const [activeSections, setActiveSections] = useState([]); // VIDE PAR DÉFAUT COMME DEMANDÉ
             const [query, setQuery] = useState('');
             const [isDropdownOpen, setIsDropdownOpen] = useState(false);
             const [formValues, setFormValues] = useState({});
@@ -173,7 +349,6 @@
 
             const handleValueChange = (field, val) => setFormValues(prev => ({ ...prev, [field]: val }));
 
-            // Filtrer l'omnibar par rapport aux mots-clés entrés
             const filteredModules = AVAILABLE_MODULES.filter(mod => {
                 const alreadyAdded = activeSections.includes(mod.id);
                 const matchesKeyword = mod.keywords.some(k => k.includes(query.toLowerCase())) || mod.label.toLowerCase().includes(query.toLowerCase());
@@ -186,16 +361,13 @@
                 setIsDropdownOpen(false);
             };
 
-            const removeModule = (id) => {
-                setActiveSections(activeSections.filter(s => s !== id));
-            };
+            const removeModule = (id) => setActiveSections(activeSections.filter(s => s !== id));
 
             const simulateUpload = () => {
                 const sampleRetino = "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=300&q=80";
                 setImages([...images, sampleRetino]);
             };
 
-            // Fermer le dropdown si on clique à côté
             useEffect(() => {
                 const handleClickOutside = (e) => {
                     if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -207,171 +379,155 @@
             }, []);
 
             return (
-                <div class="flex h-screen w-screen overflow-hidden bg-gray-100">
-                    {/* Sidebar Historique (Lecture seule) */}
-                    <aside class="w-80 bg-slate-900 flex flex-col border-r border-slate-800 text-white">
-                        <div class="p-6 border-b border-slate-800">
-                            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Dossier Longitudinal Antérieur</h2>
+                <div className="flex h-screen w-screen overflow-hidden bg-gray-100">
+                    
+                    {/* PANNEAU LATÉRAL : HISTORIQUE LONGITUDINAL EN LECTURE SEULE */}
+                    <aside className="w-80 bg-slate-900 flex flex-col border-r border-slate-800 text-white">
+                        <div className="p-6 border-b border-slate-800">
+                            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Dossier Antérieur Connecté</h2>
                         </div>
-                        <div class="flex-1 overflow-y-auto p-4 space-y-4">
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
                             {patient.prisesEnCharge.slice().reverse().map(pec => (
-                                <div key={pec.id} class="bg-slate-800/60 p-4 rounded-xl border border-slate-700">
-                                    <div class="flex justify-between text-[10px] text-blue-400 font-bold mb-1">
-                                        <span>PEC DU {pec.date}</span>
-                                    </div>
-                                    <p class="text-xs text-slate-200 font-medium mb-2">{pec.motif}</p>
-                                    <p class="text-xs text-slate-400 italic">"{pec.conclusion}"</p>
+                                <div key={pec.id} className="bg-slate-800/60 p-4 rounded-xl border border-slate-700 text-xs">
+                                    <p className="text-[10px] text-blue-400 font-bold mb-1">CONSULTATION DU {pec.date}</p>
+                                    <p className="text-slate-200 font-medium mb-1.5">{pec.motif}</p>
+                                    <p className="text-slate-400 italic">" {pec.conclusion} "</p>
                                 </div>
                             ))}
                         </div>
                     </aside>
 
-                    {/* Zone de consultation */}
-                    <main class="flex-1 overflow-y-auto p-8 flex flex-col">
-                        <nav class="flex items-center gap-2 text-sm text-gray-500 mb-6">
-                            <button onClick={onBack} class="hover:text-blue-600 cursor-pointer">Patient: {patient.nom}</button>
+                    {/* ZONE DE TRAVAIL DE LA CONSULTATION FOCUS */}
+                    <main className="flex-1 overflow-y-auto p-8 flex flex-col">
+                        <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6">
+                            <button onClick={onBack} className="hover:text-blue-600 cursor-pointer">Patient: {patient.nom}</button>
                             <span>/</span>
-                            <span class="font-bold text-gray-900">Nouvelle Consultation Focus</span>
+                            <span className="font-bold text-gray-900">Saisie d'Examen Clinique Actif</span>
                         </nav>
 
-                        {/* BANDEAU OMNIBAR INTELLIGENTE */}
-                        <div class="relative mb-6" ref={dropdownRef}>
-                            <div class="bg-white shadow-md rounded-xl border border-gray-200 p-2 flex items-center gap-3">
-                                <span class="text-gray-400 pl-2 text-lg">🔍</span>
+                        {/* OMNIBAR INTELLIGENTE */}
+                        <div className="relative mb-6" ref={dropdownRef}>
+                            <div className="bg-white shadow-md rounded-xl border border-gray-200 p-2 flex items-center gap-3">
+                                <span className="text-gray-400 pl-2 text-lg">🔍</span>
                                 <input 
                                     type="text"
-                                    class="w-full p-2 outline-none text-sm text-gray-800 placeholder-gray-400"
+                                    className="w-full p-2 outline-none text-sm text-gray-800 placeholder-gray-400"
                                     placeholder="Écrivez une commande (ex: 'tens', 'refraction', 'pach', 'obs')..."
                                     value={query}
                                     onChange={(e) => { setQuery(e.target.value); setIsDropdownOpen(true); }}
                                     onFocus={() => setIsDropdownOpen(true)}
                                 />
-                                {query && (
-                                    <button onClick={() => setQuery('')} class="text-xs text-gray-400 hover:text-gray-600 px-2">Effacer</button>
-                                )}
                             </div>
 
-                            {/* Dropdown de suggestions de l'omnibar */}
                             {isDropdownOpen && filteredModules.length > 0 && (
-                                <div class="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto p-1">
+                                <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto p-1">
                                     {filteredModules.map(mod => (
                                         <button
                                             key={mod.id}
-                                            class="w-full text-left px-4 py-2.5 text-sm rounded-lg hover:bg-blue-50 hover:text-blue-700 transition font-medium flex justify-between items-center cursor-pointer"
+                                            className="w-full text-left px-4 py-2.5 text-sm rounded-lg hover:bg-blue-50 hover:text-blue-700 transition font-medium flex justify-between items-center cursor-pointer"
                                             onClick={() => addModule(mod.id)}
                                         >
                                             <span>{mod.label}</span>
-                                            <span class="text-[10px] bg-gray-100 text-gray-400 px-2 py-0.5 rounded uppercase font-bold">Action</span>
+                                            <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded font-bold uppercase">Ajouter</span>
                                         </button>
                                     ))}
                                 </div>
                             )}
                         </div>
 
-                        {/* FORMULAIRE DE CONSULTATION DYNAMIQUE */}
-                        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col">
-                            <div class="p-6 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+                        {/* FORMULAIRE DYNAMIQUE GÉNÉRÉ PAR L'OMNIBAR */}
+                        <div className="bg-white rounded-2xl shadow-2xs border border-gray-200 overflow-hidden flex-1 flex flex-col">
+                            <div className="p-6 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
                                 <div>
-                                    <h2 class="text-base font-bold text-gray-800">Saisie active du jour</h2>
-                                    <p class="text-xs text-gray-400">Ajoutez des modules via la barre de recherche ci-dessus.</p>
+                                    <h2 className="text-base font-bold text-gray-800">Saisie active du jour</h2>
+                                    <p className="text-xs text-gray-400">Utilisez la barre de recherche supérieure pour charger les modules requis.</p>
                                 </div>
-                                <div class="flex gap-2">
-                                    <button class="px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-200 rounded-lg cursor-pointer" onClick={onBack}>Annuler</button>
-                                    <button class="px-5 py-2 text-sm font-bold bg-green-600 text-white rounded-lg shadow hover:bg-green-700 cursor-pointer" onClick={onBack}>Enregistrer l'examen</button>
+                                <div className="flex gap-2">
+                                    <button className="px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-200 rounded-lg cursor-pointer" onClick={onBack}>Annuler</button>
+                                    <button className="px-5 py-2 text-sm font-bold bg-green-600 text-white rounded-lg shadow hover:bg-green-700 cursor-pointer" onClick={onBack}>Enregistrer Consultation</button>
                                 </div>
                             </div>
 
-                            <div class="p-8 space-y-8 flex-1">
-                                {/* Message si le formulaire est vide */}
+                            <div className="p-8 space-y-8 flex-1">
+                                {/* Écran vide par défaut */}
                                 {activeSections.length === 0 && (
-                                    <div class="h-64 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-400 text-sm gap-2">
-                                        <span>📄 La fiche de saisie est vide.</span>
-                                        <span class="text-xs text-gray-400">Tapez <span class="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-blue-600 font-bold">tens</span> ou cliquez dans la barre de recherche pour ajouter un examen.</span>
+                                    <div className="h-64 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-400 text-sm gap-2">
+                                        <span>📄 La fiche clinique est vide par défaut.</span>
+                                        <span className="text-xs text-gray-400">Tapez <span className="font-mono bg-blue-50 px-1.5 py-0.5 rounded text-blue-600 font-bold">tens</span> dans l'omnibar pour ajouter l'observation de tension oculaire.</span>
                                     </div>
                                 )}
 
-                                {/* MODULE : ANAMNÈSE */}
+                                {/* MODULE DÉPLOYÉ : ANAMNÈSE */}
                                 {activeSections.includes('anamnese') && (
-                                    <div class="border border-gray-200 rounded-xl p-5 relative bg-white shadow-2xs">
-                                        <button onClick={() => removeModule('anamnese')} class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xs cursor-pointer">❌ Retirer</button>
-                                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">✍️ Anamnèse / Motif de consultation</label>
-                                        <textarea class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition" rows="2" placeholder="Saisir le motif et l'historique de la plainte..."></textarea>
+                                    <div className="border border-gray-200 rounded-xl p-5 relative bg-white shadow-2xs">
+                                        <button onClick={() => removeModule('anamnese')} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xs cursor-pointer">✕ Retirer</button>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">✍️ Observation : Anamnèse / Motif</label>
+                                        <textarea className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition" rows="2" placeholder="Saisir les doléances..."></textarea>
                                     </div>
                                 )}
 
-                                {/* MODULES DE MESURES COMPACTES STRUCTURÉES */}
+                                {/* GRAPHE DE MESURES CLINIQUES STRUCTURÉES */}
                                 {(activeSections.includes('obj') || activeSections.includes('subj') || activeSections.includes('ker') || activeSections.includes('pach') || activeSections.includes('tens')) && (
-                                    <div class="border border-gray-200 rounded-xl p-5 relative bg-white shadow-2xs">
-                                        <div class="flex justify-between items-center border-b border-gray-100 pb-3 mb-3">
-                                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider">🔢 Mesures Cliniques Structurées</label>
-                                            <div class="flex gap-20 text-[10px] font-bold text-gray-400 mr-16">
+                                    <div className="border border-gray-200 rounded-xl p-5 relative bg-white shadow-2xs">
+                                        <div className="flex justify-between items-center border-b border-gray-100 pb-3 mb-3">
+                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">🔢 Mesures Cliniques Structurées</label>
+                                            <div className="flex gap-20 text-[10px] font-bold text-gray-400 mr-16">
                                                 <span>OEIL DROIT (OD)</span>
                                                 <span>OEIL GAUCHE (OG)</span>
                                             </div>
                                         </div>
                                         
-                                        <div class="space-y-1">
+                                        <div className="space-y-1">
                                             {activeSections.includes('obj') && (
-                                                <div class="relative group">
+                                                <div className="relative">
                                                     <MeasurementRow label="Réfraction Objective" unit="D" fields={["Sph", "Cyl", "Axe"]} section="obj" values={formValues} onChange={handleValueChange} />
-                                                    <button onClick={() => removeModule('obj')} class="absolute right-8 top-3 text-[10px] text-gray-400 hover:text-red-500 cursor-pointer">✕</button>
+                                                    <button onClick={() => removeModule('obj')} className="absolute right-8 top-3 text-[10px] text-gray-400 hover:text-red-500 cursor-pointer">✕</button>
                                                 </div>
                                             )}
                                             {activeSections.includes('subj') && (
-                                                <div class="relative group">
+                                                <div className="relative">
                                                     <MeasurementRow label="Réfraction Subjective" unit="VA" fields={["Sph", "Cyl", "Axe", "Ac"]} section="subj" values={formValues} onChange={handleValueChange} />
-                                                    <button onClick={() => removeModule('subj')} class="absolute right-8 top-3 text-[10px] text-gray-400 hover:text-red-500 cursor-pointer">✕</button>
+                                                    <button onClick={() => removeModule('subj')} className="absolute right-8 top-3 text-[10px] text-gray-400 hover:text-red-500 cursor-pointer">✕</button>
                                                 </div>
                                             )}
                                             {activeSections.includes('ker') && (
-                                                <div class="relative group">
+                                                <div className="relative">
                                                     <MeasurementRow label="Kératométrie" unit="mm" fields={["K1", "K2", "Ax"]} section="ker" values={formValues} onChange={handleValueChange} />
-                                                    <button onClick={() => removeModule('ker')} class="absolute right-8 top-3 text-[10px] text-gray-400 hover:text-red-500 cursor-pointer">✕</button>
+                                                    <button onClick={() => removeModule('ker')} className="absolute right-8 top-3 text-[10px] text-gray-400 hover:text-red-500 cursor-pointer">✕</button>
                                                 </div>
                                             )}
                                             {activeSections.includes('pach') && (
-                                                <div class="relative group">
+                                                <div className="relative">
                                                     <MeasurementRow label="Pachymétrie" unit="µm" fields={["Centre"]} section="pach" values={formValues} onChange={handleValueChange} />
-                                                    <button onClick={() => removeModule('pach')} class="absolute right-8 top-3 text-[10px] text-gray-400 hover:text-red-500 cursor-pointer">✕</button>
+                                                    <button onClick={() => removeModule('pach')} className="absolute right-8 top-3 text-[10px] text-gray-400 hover:text-red-500 cursor-pointer">✕</button>
                                                 </div>
                                             )}
                                             {activeSections.includes('tens') && (
-                                                <div class="relative group">
+                                                <div className="relative">
                                                     <MeasurementRow label="Tension Oculaire" unit="mmHg" fields={["T"]} section="tens" values={formValues} onChange={handleValueChange} />
-                                                    <button onClick={() => removeModule('tens')} class="absolute right-8 top-3 text-[10px] text-gray-400 hover:text-red-500 cursor-pointer">✕</button>
+                                                    <button onClick={() => removeModule('tens')} className="absolute right-8 top-3 text-[10px] text-gray-400 hover:text-red-500 cursor-pointer">✕</button>
                                                 </div>
                                             )}
                                         </div>
                                     </div>
                                 )}
 
-                                {/* MODULE : IMAGERIE */}
+                                {/* MODULE DÉPLOYÉ : IMAGERIE */}
                                 {activeSections.includes('imagerie') && (
-                                    <div class="border border-gray-200 rounded-xl p-5 relative bg-white shadow-2xs">
-                                        <button onClick={() => removeModule('imagerie')} class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xs cursor-pointer">❌ Retirer</button>
-                                        <div class="flex justify-between items-center mb-3">
-                                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider">📸 Rétinographies / Imagerie numérique</label>
-                                            <button 
-                                                type="button"
-                                                onClick={simulateUpload}
-                                                class="text-xs font-bold text-blue-600 border border-blue-200 bg-blue-50/50 hover:bg-blue-50 px-3 py-1.5 rounded-lg cursor-pointer transition"
-                                            >
-                                                + Capturer / Importer
-                                            </button>
+                                    <div className="border border-gray-200 rounded-xl p-5 relative bg-white shadow-2xs">
+                                        <button onClick={() => removeModule('imagerie')} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xs cursor-pointer">✕ Retirer</button>
+                                        <div className="flex justify-between items-center mb-3">
+                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">📸 Rétinographies / Fonds d'œil</label>
+                                            <button type="button" onClick={simulateUpload} className="text-xs font-bold text-blue-600 border border-blue-200 bg-blue-50/50 hover:bg-blue-50 px-3 py-1.5 rounded-lg cursor-pointer transition">+ Simuler capture appareil</button>
                                         </div>
 
-                                        <div class="grid grid-cols-4 gap-4">
+                                        <div className="grid grid-cols-4 gap-4">
                                             {images.length === 0 ? (
-                                                <div class="col-span-4 border-2 border-dashed border-gray-100 rounded-xl h-20 flex items-center justify-center text-gray-400 text-xs">
-                                                    Aucune image liée à cet examen. Cliquez sur Capturer.
-                                                </div>
+                                                <div className="col-span-4 border-2 border-dashed border-gray-200 rounded-xl h-20 flex items-center justify-center text-gray-400 text-xs">Aucune rétinographie importée pour cette séance.</div>
                                             ) : (
                                                 images.map((img, idx) => (
-                                                    <div key={idx} class="relative aspect-square rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-black group">
-                                                        <img src={img} class="w-full h-full object-cover opacity-90" />
-                                                        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition cursor-pointer">
-                                                            <span class="text-white text-[10px] font-bold border border-white px-2 py-1 rounded">Agrandir</span>
-                                                        </div>
+                                                    <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-black">
+                                                        <img src={img} className="w-full h-full object-cover" />
                                                     </div>
                                                 ))
                                             )}
@@ -379,12 +535,12 @@
                                     </div>
                                 )}
 
-                                {/* MODULE : CONCLUSION */}
+                                {/* MODULE DÉPLOYÉ : CONCLUSION */}
                                 {activeSections.includes('conclusion') && (
-                                    <div class="border border-emerald-200 rounded-xl p-5 relative bg-emerald-50/10 shadow-2xs">
-                                        <button onClick={() => removeModule('conclusion')} class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xs cursor-pointer">❌ Retirer</button>
-                                        <label class="block text-xs font-bold text-emerald-700 uppercase tracking-wider mb-2">🏁 Conclusion médicale & Ordonnance</label>
-                                        <textarea class="w-full p-3 bg-white border border-emerald-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition italic" rows="2" placeholder="Saisir la conclusion thérapeutique..."></textarea>
+                                    <div className="border border-emerald-200 rounded-xl p-5 relative bg-emerald-50/10 shadow-2xs">
+                                        <button onClick={() => removeModule('conclusion')} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xs cursor-pointer">✕ Retirer</button>
+                                        <label className="block text-xs font-bold text-emerald-700 uppercase tracking-wider mb-2">🏁 Conclusion Clinique & Ordonnance</label>
+                                        <textarea className="w-full p-3 bg-white border border-emerald-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition italic" rows="2" placeholder="Saisir le traitement prescrit..."></textarea>
                                     </div>
                                 )}
                             </div>
@@ -394,12 +550,12 @@
             );
         };
 
-        // ROUTEUR PRINCIPAL
+        // ROUTEUR PRINCIPAL DE L'APPLICATION
         function App() {
             const [view, setView] = useState('patient');
 
             return (
-                <div class="w-screen h-screen">
+                <div className="w-screen h-screen">
                     {view === 'patient' ? (
                         <PatientView patient={INITIAL_PATIENT} onNewPEC={() => setView('care')} />
                     ) : (
