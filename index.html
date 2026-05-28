@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>mon gros test</title>
+    <title>SanteFlow - Logiciel Métier Avancé</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
@@ -18,36 +18,75 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState } = React;
+        const { useState, useRef, useEffect } = React;
 
-        // 1. DONNÉES DE TEST ÉTENDUES
+        // 1. DONNÉES DE TEST ENRICHIES (HISTORIQUE LONG)
         const INITIAL_PATIENT = {
             id: "p-001",
             nom: "DURAND",
             prenom: "Jean-Pierre",
             age: 62,
             niss: "62.05.12-123.45",
-            antecedents: ["Diabète Type 2", "Hypertension", "Cataracte OD opérée (2023)"],
+            antecedents: ["Diabète Type 2 (Suivi)", "Hypertension artérielle", "Cataracte OD opérée (Mai 2023)", "Suspicion de Glaucome chronologique OG"],
             prisesEnCharge: [
+                {
+                    id: "pec-2022",
+                    date: "14/04/2022",
+                    motif: "Contrôle initial / Prescription lunettes",
+                    conclusion: "Myopie faible stable. Fond d'œil normal. PIO initiale à surveiller.",
+                    examens: [
+                        { type: "Réfraction", od: "Sph -1.00", og: "Sph -1.25" },
+                        { type: "Tension", od: "15 mmHg", og: "17 mmHg" }
+                    ]
+                },
                 {
                     id: "pec-2023",
                     date: "12/10/2023",
-                    motif: "Suivi annuel diabète",
-                    conclusion: "Stabilité rétinienne, PIO normale.",
+                    motif: "Bilan Cataracte post-opératoire",
+                    conclusion: "Excellente récupération OD (AV 10/10). Segment antérieur calme. Cristallin clair OG.",
                     examens: [
-                        { type: "Refraction", od: "Sph +1.25 Cyl -0.50 Axe 90", og: "Sph +1.50 Cyl -0.25 Axe 85" },
-                        { type: "Tension", od: "14 mmHg", og: "15 mmHg" }
+                        { type: "Réfraction", od: "Sph Plan", og: "Sph -1.25" },
+                        { type: "Tension", od: "13 mmHg", og: "14 mmHg" }
+                    ]
+                },
+                {
+                    id: "pec-2024",
+                    date: "05/09/2024",
+                    motif: "Suivi annuel diabète + PIO",
+                    conclusion: "Pas de rétinopathie diabétique. Légère hausse de la tension oculaire à gauche.",
+                    examens: [
+                        { type: "Tension", od: "14 mmHg", og: "19 mmHg" },
+                        { type: "Pachymétrie", od: "545 µm", og: "542 µm" }
+                    ]
+                },
+                {
+                    id: "pec-2025",
+                    date: "11/06/2025",
+                    motif: "Urgence relative - Myodésopsies OG",
+                    conclusion: "Décollement postérieur du vitré OG en cours sans déchirure rétinienne périphérique. Revoir à 3 semaines.",
+                    examens: [
+                        { type: "Observation", notes: "Flashs lumineux intermittents quadrant temporal externe OG depuis 48h." }
                     ]
                 }
             ]
         };
 
-        // 2. COMPOSANT DE LIGNE DE MESURE STANDARDISÉE (OD / OG)
+        // LISTE DES MODULES DISPONIBLES DANS L'OMNIBAR
+        const AVAILABLE_MODULES = [
+            { id: "anamnese", label: "Ajouter une observation médicale (Anamnèse / Motif)", keywords: ["anamnese", "motif", "obs", "texte", "commentaire", "plainte"] },
+            { id: "obj", label: "Ajouter une mesure : Réfraction Objective", keywords: ["refraction", "objective", "obj", "sph", "cyl", "axe", "autorefr"] },
+            { id: "subj", label: "Ajouter une mesure : Réfraction Subjective", keywords: ["refraction", "subjective", "subj", "acuite", "lunettes", "va"] },
+            { id: "ker", label: "Ajouter une mesure : Kératométrie", keywords: ["keratometrie", "ker", "cornee", "courbure", "mm"] },
+            { id: "pach", label: "Ajouter une mesure : Pachymétrie", keywords: ["pachymetrie", "pach", "epaisseur", "cornee", "micron"] },
+            { id: "tens", label: "Ajouter une observation médicale de type Tension Oculaire", keywords: ["tension", "tens", "pio", "pression", "glaucome", "mmhg"] },
+            { id: "imagerie", label: "Ajouter un module d'Imagerie / Rétinographies", keywords: ["retinographie", "imagerie", "photo", "fond d'oeil", "image", "import"] },
+            { id: "conclusion", label: "Ajouter la Conclusion & Prescription", keywords: ["conclusion", "prescription", "ordonnance", "fin", "clore"] }
+        ];
+
+        // COMPOSANT DE LIGNE DE MESURE (OD / OG)
         const MeasurementRow = ({ label, unit, fields, section, values, onChange }) => (
             <div class="grid grid-cols-12 gap-4 items-center py-3 border-b border-gray-100 last:border-0">
                 <div class="col-span-3 text-sm font-medium text-gray-700">{label}</div>
-                
-                {/* Bloc Œil Droit (OD) - Teinte Bleutée */}
                 <div class="col-span-4 flex gap-2">
                     {fields.map(f => (
                         <input 
@@ -60,8 +99,6 @@
                         />
                     ))}
                 </div>
-                
-                {/* Bloc Œil Gauche (OG) - Teinte Verte */}
                 <div class="col-span-4 flex gap-2">
                     {fields.map(f => (
                         <input 
@@ -74,12 +111,11 @@
                         />
                     ))}
                 </div>
-                
                 <div class="col-span-1 text-xs font-bold text-gray-400 uppercase text-right">{unit}</div>
             </div>
         );
 
-        // 3. PAGE PATIENT (VUE LONGITUDINALE)
+        // VUE PATIENT (LONGITUDINALE)
         const PatientView = ({ patient, onNewPEC }) => (
             <div class="max-w-6xl mx-auto p-8">
                 <div class="flex justify-between items-start mb-8">
@@ -90,10 +126,7 @@
                         </div>
                         <p class="text-gray-500">{patient.age} ans • NISS: {patient.niss}</p>
                     </div>
-                    <button 
-                        onClick={onNewPEC}
-                        class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-100 transition cursor-pointer"
-                    >
+                    <button onClick={onNewPEC} class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-100 transition cursor-pointer">
                         + Nouvelle Prise en Charge
                     </button>
                 </div>
@@ -101,32 +134,26 @@
                 <div class="grid grid-cols-12 gap-8">
                     <div class="col-span-4 space-y-6">
                         <div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-                            <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2 text-sm uppercase tracking-wider text-red-600">
-                                ⚠️ Antécédents
-                            </h3>
+                            <h3 class="font-bold text-gray-800 mb-3 text-sm uppercase tracking-wider text-red-600">⚠️ Antécédents</h3>
                             <ul class="space-y-2">
                                 {patient.antecedents.map((a, i) => (
-                                    <li key={i} class="text-sm bg-red-50 text-red-700 p-2 rounded-lg border border-red-100 italic">
-                                        • {a}
-                                    </li>
+                                    <li key={i} class="text-sm bg-red-50 text-red-700 p-2 rounded-lg border border-red-100 italic">• {a}</li>
                                 ))}
                             </ul>
                         </div>
                     </div>
 
-                    <div class="col-span-8 bg-white p-8 rounded-2xl border border-gray-200 shadow-sm min-h-[400px]">
-                        <h2 class="text-xl font-bold text-gray-900 mb-6">Historique des Prises en Charge</h2>
+                    <div class="col-span-8 bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
+                        <h2 class="text-xl font-bold text-gray-900 mb-6">Historique Longitudinal ({patient.prisesEnCharge.length} épisodes)</h2>
                         <div class="relative border-l-2 border-gray-100 ml-4 space-y-8">
-                            {patient.prisesEnCharge.map(pec => (
+                            {patient.prisesEnCharge.slice().reverse().map(pec => (
                                 <div key={pec.id} class="relative pl-8">
                                     <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-white border-2 border-blue-500"></div>
                                     <div class="flex justify-between mb-2">
                                         <h4 class="font-bold text-gray-800">PEC du {pec.date}</h4>
                                         <span class="text-xs font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded">{pec.motif}</span>
                                     </div>
-                                    <p class="text-sm text-gray-600 bg-gray-50 p-3 rounded-xl border border-gray-100 italic">
-                                        "{pec.conclusion}"
-                                    </p>
+                                    <p class="text-sm text-gray-600 bg-gray-50 p-3 rounded-xl border border-gray-100 italic">"{pec.conclusion}"</p>
                                 </div>
                             ))}
                         </div>
@@ -135,113 +162,231 @@
             </div>
         );
 
-        // 4. PAGE PRISE EN CHARGE (VUE FOCALE)
+        // VUE PRISE EN CHARGE (FOCALE AVEC OMNIBAR)
         const CareView = ({ patient, onBack }) => {
-            const [form, setForm] = useState({});
+            const [activeSections, setActiveSections] = useState([]); // VIDE PAR DÉFAUT
+            const [query, setQuery] = useState('');
+            const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+            const [formValues, setFormValues] = useState({});
             const [images, setImages] = useState([]);
+            const dropdownRef = useRef(null);
 
-            const handleUpdate = (field, val) => setForm(prev => ({ ...prev, [field]: val }));
+            const handleValueChange = (field, val) => setFormValues(prev => ({ ...prev, [field]: val }));
 
-            // Simulation de chargement d'une rétinographie réaliste
+            // Filtrer l'omnibar par rapport aux mots-clés entrés
+            const filteredModules = AVAILABLE_MODULES.filter(mod => {
+                const alreadyAdded = activeSections.includes(mod.id);
+                const matchesKeyword = mod.keywords.some(k => k.includes(query.toLowerCase())) || mod.label.toLowerCase().includes(query.toLowerCase());
+                return !alreadyAdded && (query === '' || matchesKeyword);
+            });
+
+            const addModule = (id) => {
+                setActiveSections([...activeSections, id]);
+                setQuery('');
+                setIsDropdownOpen(false);
+            };
+
+            const removeModule = (id) => {
+                setActiveSections(activeSections.filter(s => s !== id));
+            };
+
             const simulateUpload = () => {
                 const sampleRetino = "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=300&q=80";
                 setImages([...images, sampleRetino]);
             };
 
+            // Fermer le dropdown si on clique à côté
+            useEffect(() => {
+                const handleClickOutside = (e) => {
+                    if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                        setIsDropdownOpen(false);
+                    }
+                };
+                document.addEventListener('mousedown', handleClickOutside);
+                return () => document.removeEventListener('mousedown', handleClickOutside);
+            }, []);
+
             return (
                 <div class="flex h-screen w-screen overflow-hidden bg-gray-100">
-                    {/* Panneau Latéral Historique en Lecture seule */}
+                    {/* Sidebar Historique (Lecture seule) */}
                     <aside class="w-80 bg-slate-900 flex flex-col border-r border-slate-800 text-white">
                         <div class="p-6 border-b border-slate-800">
-                            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Historique de Consultation</h2>
+                            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Dossier Longitudinal Antérieur</h2>
                         </div>
                         <div class="flex-1 overflow-y-auto p-4 space-y-4">
-                            {patient.prisesEnCharge.map(pec => (
+                            {patient.prisesEnCharge.slice().reverse().map(pec => (
                                 <div key={pec.id} class="bg-slate-800/60 p-4 rounded-xl border border-slate-700">
-                                    <p class="text-[10px] text-blue-400 font-bold mb-1">PEC DU {pec.date}</p>
-                                    <p class="text-xs text-slate-300 italic">"{pec.conclusion}"</p>
+                                    <div class="flex justify-between text-[10px] text-blue-400 font-bold mb-1">
+                                        <span>PEC DU {pec.date}</span>
+                                    </div>
+                                    <p class="text-xs text-slate-200 font-medium mb-2">{pec.motif}</p>
+                                    <p class="text-xs text-slate-400 italic">"{pec.conclusion}"</p>
                                 </div>
                             ))}
                         </div>
                     </aside>
 
-                    {/* Zone d'Écriture Active */}
+                    {/* Zone de consultation */}
                     <main class="flex-1 overflow-y-auto p-8 flex flex-col">
                         <nav class="flex items-center gap-2 text-sm text-gray-500 mb-6">
                             <button onClick={onBack} class="hover:text-blue-600 cursor-pointer">Patient: {patient.nom}</button>
                             <span>/</span>
-                            <span class="font-bold text-gray-900">Nouvelle Consultation</span>
+                            <span class="font-bold text-gray-900">Nouvelle Consultation Focus</span>
                         </nav>
 
+                        {/* BANDEAU OMNIBAR INTELLIGENTE */}
+                        <div class="relative mb-6" ref={dropdownRef}>
+                            <div class="bg-white shadow-md rounded-xl border border-gray-200 p-2 flex items-center gap-3">
+                                <span class="text-gray-400 pl-2 text-lg">🔍</span>
+                                <input 
+                                    type="text"
+                                    class="w-full p-2 outline-none text-sm text-gray-800 placeholder-gray-400"
+                                    placeholder="Écrivez une commande (ex: 'tens', 'refraction', 'pach', 'obs')..."
+                                    value={query}
+                                    onChange={(e) => { setQuery(e.target.value); setIsDropdownOpen(true); }}
+                                    onFocus={() => setIsDropdownOpen(true)}
+                                />
+                                {query && (
+                                    <button onClick={() => setQuery('')} class="text-xs text-gray-400 hover:text-gray-600 px-2">Effacer</button>
+                                )}
+                            </div>
+
+                            {/* Dropdown de suggestions de l'omnibar */}
+                            {isDropdownOpen && filteredModules.length > 0 && (
+                                <div class="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto p-1">
+                                    {filteredModules.map(mod => (
+                                        <button
+                                            key={mod.id}
+                                            class="w-full text-left px-4 py-2.5 text-sm rounded-lg hover:bg-blue-50 hover:text-blue-700 transition font-medium flex justify-between items-center cursor-pointer"
+                                            onClick={() => addModule(mod.id)}
+                                        >
+                                            <span>{mod.label}</span>
+                                            <span class="text-[10px] bg-gray-100 text-gray-400 px-2 py-0.5 rounded uppercase font-bold">Action</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* FORMULAIRE DE CONSULTATION DYNAMIQUE */}
                         <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col">
                             <div class="p-6 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-                                <h2 class="text-lg font-bold text-gray-800">Saisie de l'Examen</h2>
+                                <div>
+                                    <h2 class="text-base font-bold text-gray-800">Saisie active du jour</h2>
+                                    <p class="text-xs text-gray-400">Ajoutez des modules via la barre de recherche ci-dessus.</p>
+                                </div>
                                 <div class="flex gap-2">
                                     <button class="px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-200 rounded-lg cursor-pointer" onClick={onBack}>Annuler</button>
-                                    <button class="px-5 py-2 text-sm font-bold bg-green-600 text-white rounded-lg shadow hover:bg-green-700 cursor-pointer" onClick={onBack}>Enregistrer</button>
+                                    <button class="px-5 py-2 text-sm font-bold bg-green-600 text-white rounded-lg shadow hover:bg-green-700 cursor-pointer" onClick={onBack}>Enregistrer l'examen</button>
                                 </div>
                             </div>
 
                             <div class="p-8 space-y-8 flex-1">
-                                {/* Section 1 : Anamnèse */}
-                                <section>
-                                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">1. Anamnèse / Motif</label>
-                                    <textarea 
-                                        class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition" 
-                                        rows="2" 
-                                        placeholder="Saisir les observations textuelles..."
-                                    ></textarea>
-                                </section>
+                                {/* Message si le formulaire est vide */}
+                                {activeSections.length === 0 && (
+                                    <div class="h-64 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-400 text-sm gap-2">
+                                        <span>📄 La fiche de saisie est vide.</span>
+                                        <span class="text-xs text-gray-400">Tapez <span class="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-blue-600 font-bold">tens</span> ou cliquez dans la barre de recherche pour ajouter un examen.</span>
+                                    </div>
+                                )}
 
-                                {/* Section 2 : Mesures Structurées */}
-                                <section class="space-y-4">
-                                    <div class="flex justify-between items-end border-b border-gray-100 pb-2">
-                                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider">2. Mesures Structurées</label>
-                                        <div class="flex gap-20 text-[10px] font-bold text-gray-400 mr-16">
-                                            <span>OEIL DROIT (OD)</span>
-                                            <span>OEIL GAUCHE (OG)</span>
+                                {/* MODULE : ANAMNÈSE */}
+                                {activeSections.includes('anamnese') && (
+                                    <div class="border border-gray-200 rounded-xl p-5 relative bg-white shadow-2xs">
+                                        <button onClick={() => removeModule('anamnese')} class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xs cursor-pointer">❌ Retirer</button>
+                                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">✍️ Anamnèse / Motif de consultation</label>
+                                        <textarea class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition" rows="2" placeholder="Saisir le motif et l'historique de la plainte..."></textarea>
+                                    </div>
+                                )}
+
+                                {/* MODULES DE MESURES COMPACTES STRUCTURÉES */}
+                                {(activeSections.includes('obj') || activeSections.includes('subj') || activeSections.includes('ker') || activeSections.includes('pach') || activeSections.includes('tens')) && (
+                                    <div class="border border-gray-200 rounded-xl p-5 relative bg-white shadow-2xs">
+                                        <div class="flex justify-between items-center border-b border-gray-100 pb-3 mb-3">
+                                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider">🔢 Mesures Cliniques Structurées</label>
+                                            <div class="flex gap-20 text-[10px] font-bold text-gray-400 mr-16">
+                                                <span>OEIL DROIT (OD)</span>
+                                                <span>OEIL GAUCHE (OG)</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="space-y-1">
+                                            {activeSections.includes('obj') && (
+                                                <div class="relative group">
+                                                    <MeasurementRow label="Réfraction Objective" unit="D" fields={["Sph", "Cyl", "Axe"]} section="obj" values={formValues} onChange={handleValueChange} />
+                                                    <button onClick={() => removeModule('obj')} class="absolute right-8 top-3 text-[10px] text-gray-400 hover:text-red-500 cursor-pointer">✕</button>
+                                                </div>
+                                            )}
+                                            {activeSections.includes('subj') && (
+                                                <div class="relative group">
+                                                    <MeasurementRow label="Réfraction Subjective" unit="VA" fields={["Sph", "Cyl", "Axe", "Ac"]} section="subj" values={formValues} onChange={handleValueChange} />
+                                                    <button onClick={() => removeModule('subj')} class="absolute right-8 top-3 text-[10px] text-gray-400 hover:text-red-500 cursor-pointer">✕</button>
+                                                </div>
+                                            )}
+                                            {activeSections.includes('ker') && (
+                                                <div class="relative group">
+                                                    <MeasurementRow label="Kératométrie" unit="mm" fields={["K1", "K2", "Ax"]} section="ker" values={formValues} onChange={handleValueChange} />
+                                                    <button onClick={() => removeModule('ker')} class="absolute right-8 top-3 text-[10px] text-gray-400 hover:text-red-500 cursor-pointer">✕</button>
+                                                </div>
+                                            )}
+                                            {activeSections.includes('pach') && (
+                                                <div class="relative group">
+                                                    <MeasurementRow label="Pachymétrie" unit="µm" fields={["Centre"]} section="pach" values={formValues} onChange={handleValueChange} />
+                                                    <button onClick={() => removeModule('pach')} class="absolute right-8 top-3 text-[10px] text-gray-400 hover:text-red-500 cursor-pointer">✕</button>
+                                                </div>
+                                            )}
+                                            {activeSections.includes('tens') && (
+                                                <div class="relative group">
+                                                    <MeasurementRow label="Tension Oculaire" unit="mmHg" fields={["T"]} section="tens" values={formValues} onChange={handleValueChange} />
+                                                    <button onClick={() => removeModule('tens')} class="absolute right-8 top-3 text-[10px] text-gray-400 hover:text-red-500 cursor-pointer">✕</button>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                    
-                                    <div class="bg-gray-50/50 p-4 rounded-xl border border-gray-100 space-y-1">
-                                        <MeasurementRow label="Réfraction Objective" unit="D" fields={["Sph", "Cyl", "Axe"]} section="obj" values={form} onChange={handleUpdate} />
-                                        <MeasurementRow label="Réfraction Subjective" unit="VA" fields={["Sph", "Cyl", "Axe", "Ac"]} section="subj" values={form} onChange={handleUpdate} />
-                                        <MeasurementRow label="Kératométrie" unit="mm" fields={["K1", "K2", "Ax"]} section="ker" values={form} onChange={handleUpdate} />
-                                        <MeasurementRow label="Pachymétrie" unit="µm" fields={["Centre"]} section="pach" values={form} onChange={handleUpdate} />
-                                        <MeasurementRow label="Tension Oculaire" unit="mmHg" fields={["T"]} section="tens" values={form} onChange={handleUpdate} />
-                                    </div>
-                                </section>
+                                )}
 
-                                {/* Section 3 : Rétinographies */}
-                                <section>
-                                    <div class="flex justify-between items-center mb-3">
-                                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider">3. Rétinographies / Imagerie</label>
-                                        <button 
-                                            type="button"
-                                            onClick={simulateUpload}
-                                            class="text-xs font-bold text-blue-600 border border-blue-200 bg-blue-50/50 hover:bg-blue-50 px-3 py-1.5 rounded-lg cursor-pointer transition"
-                                        >
-                                            + Importer une rétinographie
-                                        </button>
-                                    </div>
+                                {/* MODULE : IMAGERIE */}
+                                {activeSections.includes('imagerie') && (
+                                    <div class="border border-gray-200 rounded-xl p-5 relative bg-white shadow-2xs">
+                                        <button onClick={() => removeModule('imagerie')} class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xs cursor-pointer">❌ Retirer</button>
+                                        <div class="flex justify-between items-center mb-3">
+                                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider">📸 Rétinographies / Imagerie numérique</label>
+                                            <button 
+                                                type="button"
+                                                onClick={simulateUpload}
+                                                class="text-xs font-bold text-blue-600 border border-blue-200 bg-blue-50/50 hover:bg-blue-50 px-3 py-1.5 rounded-lg cursor-pointer transition"
+                                            >
+                                                + Capturer / Importer
+                                            </button>
+                                        </div>
 
-                                    <div class="grid grid-cols-4 gap-4">
-                                        {images.length === 0 ? (
-                                            <div class="col-span-4 border-2 border-dashed border-gray-200 rounded-xl h-24 flex items-center justify-center text-gray-400 text-xs">
-                                                Aucune image importée pour cette session.
-                                            </div>
-                                        ) : (
-                                            images.map((img, idx) => (
-                                                <div key={idx} class="relative aspect-square rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-black group">
-                                                    <img src={img} class="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition" />
-                                                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition cursor-pointer">
-                                                        <span class="text-white text-[10px] font-bold border border-white px-2 py-1 rounded">Visualiser</span>
-                                                    </div>
+                                        <div class="grid grid-cols-4 gap-4">
+                                            {images.length === 0 ? (
+                                                <div class="col-span-4 border-2 border-dashed border-gray-100 rounded-xl h-20 flex items-center justify-center text-gray-400 text-xs">
+                                                    Aucune image liée à cet examen. Cliquez sur Capturer.
                                                 </div>
-                                            ))
-                                        )}
+                                            ) : (
+                                                images.map((img, idx) => (
+                                                    <div key={idx} class="relative aspect-square rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-black group">
+                                                        <img src={img} class="w-full h-full object-cover opacity-90" />
+                                                        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition cursor-pointer">
+                                                            <span class="text-white text-[10px] font-bold border border-white px-2 py-1 rounded">Agrandir</span>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
                                     </div>
-                                </section>
+                                )}
+
+                                {/* MODULE : CONCLUSION */}
+                                {activeSections.includes('conclusion') && (
+                                    <div class="border border-emerald-200 rounded-xl p-5 relative bg-emerald-50/10 shadow-2xs">
+                                        <button onClick={() => removeModule('conclusion')} class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xs cursor-pointer">❌ Retirer</button>
+                                        <label class="block text-xs font-bold text-emerald-700 uppercase tracking-wider mb-2">🏁 Conclusion médicale & Ordonnance</label>
+                                        <textarea class="w-full p-3 bg-white border border-emerald-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition italic" rows="2" placeholder="Saisir la conclusion thérapeutique..."></textarea>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </main>
@@ -249,9 +394,9 @@
             );
         };
 
-        // 5. ROUTEUR PRINCIPAL
+        // ROUTEUR PRINCIPAL
         function App() {
-            const [view, setView] = useState('patient'); // 'patient' ou 'care'
+            const [view, setView] = useState('patient');
 
             return (
                 <div class="w-screen h-screen">
